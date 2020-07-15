@@ -22,21 +22,12 @@
 % 
 % model(z1)*Prod(model(z = model(z-1))*(prod(model(x-1 = model(z-1)))))
 [spikes,fiftyPos,fiftyVelo] = PosVeloTime(Data);
-data = pmdDataSetup(Data)
+%%
+testSpikes = spikes;
+data = pmdDataSetup(Data);
 totaldata = Data;
-% veloX = fiftyVelo.x{1}(1);
-% veloY = fiftyVelo.y{1}(1);
-% posX = fiftyPos.x{1}(1);
-% posY = fiftyPos.y{1}(1);
-% z_t1 = [veloX posX posY veloY]';
-% T = length(fiftyVelo.x{1});
-% veloX2 = fiftyVelo.x{1}(2);
-% veloY2 = fiftyVelo.y{1}(2);
-% posX2 = fiftyPos.x{1}(2);
-% posY2 = fiftyPos.y{1}(2);
-% z_t = [veloX2 posX2 posY2 veloY2]';
-% x_t = spikes{1}(2,:);
-D = length(x_t);
+%%
+D = length(spikes{1}(2,:));
 M = 4;
 %%
 angles = [0 45 90 135 180 225 270 315];
@@ -65,81 +56,94 @@ end
 
 %%
 for i = 1:length(sortedIndex)
-    trainingData.veloX{i} = fiftyVelo.x{sortedIndex(i)}(:);
+    trainingData.veloX{i} = fiftyVelo.x{sortedIndex(i)};
     fiftyVelo.x{sortedIndex(i)}(:) = [];
-    trainingData.veloY{i} = fiftyVelo.y{sortedIndex(i)}(:);
+    trainingData.veloY{i} = fiftyVelo.y{sortedIndex(i)};
     fiftyVelo.y{sortedIndex(i)}(:) = [];
-    trainingData.posX{i} = fiftyPos.x{sortedIndex(i)}(:);
+    trainingData.posX{i} = fiftyPos.x{sortedIndex(i)};
     fiftyPos.x{sortedIndex(i)}(:) = [];
-    trainingData.posY{i} = fiftyPos.y{sortedIndex(i)}(:);
+    trainingData.posY{i} = fiftyPos.y{sortedIndex(i)};
     fiftyPos.y{sortedIndex(i)}(:) = [];
-    trainingData.spikes{i} = spikes{sortedIndex(i)}(:);
-    spikes{i}(:) = [];
+    trainingData.spikes{i} = spikes{sortedIndex(i)};
+    spikes{sortedIndex(i)} = [];
 end
-%%
-fnV = fieldnames(fiftyVelo);
-% fnP = fieldnames(fiftyPos)
-tfV = cellfun(@(c) isempty(fiftyVelo.(c)), fnV);
-S2 = rmfield(fiftyVelo, fnV(tfV))
 %%
 Asum= zeros(M,M);
 Qsum= zeros(M,M);
 Csum = zeros(D,M);
 Rsum = zeros(D,D);
-%% Prediction 
-for trial =1:1222
+buffer = false;
+%Prediction 
+for trial =1:length(trainingData.veloX)
     
-    trialveloX = fiftyVelo.x{trial};
-    trialposX = fiftyPos.x{trial};
-    trialveloY = fiftyVelo.y{trial};
-    trialposY = fiftyPos.y{trial};
+    trialveloX = trainingData.veloX{trial};
+    trialposX =  trainingData.posX{trial};
+    trialveloY = trainingData.veloY{trial};
+    trialposY = trainingData.posY{trial};
+    trialSpikes = trainingData.spikes{trial};  
     T = length(trialveloX);
         for bin =2:T
-            veloX = fiftyVelo.x{trial}(bin-1);
-            veloY = fiftyVelo.y{trial}(bin-1);
-            posX = fiftyPos.x{trial}(bin-1);
-            posY = fiftyPos.y{trial}(bin-1);
-            z_t1 = [veloX posX posY veloY]';
-            veloX2 = fiftyVelo.x{trial}(bin);
-            veloY2 = fiftyVelo.y{trial}(bin);
-            posX2 = fiftyPos.x{trial}(bin);
-            posY2 = fiftyPos.y{trial}(bin);
-            x_t = spikes{trial}(bin,:);
-            z_t = [veloX2 posX2 posY2 veloY2]';
-            A= (z_t*z_t1'T)*(z_t1*z_t1'T)^(-1);
-            C = (x_t'*z_t'T)*(z_t*z_t'T)^-1;
-            Asum = A+ Asum;
-            Csum = C+Csum;
+            if ~buffer
+                if (isnan(trialveloX(bin))||isnan(trialveloY(bin))||isnan(trialposX(bin))||isnan(trialposY(bin))||isnan(trialSpikes(bin)))
+                    buffer = true;
+                    continue;
+                elseif (isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
+                    buffer = true;
+                    continue;      
+                else
+
+                    veloX = trialveloX(bin-1);
+                    veloY = trialveloY(bin-1);
+                    posX = trialposX(bin-1);
+                    posY = trialposY(bin-1);
+                    z_t1 = [veloX posX posY veloY]';
+                    veloX2 = trialveloX(bin);
+                    veloY2 = trialveloY(bin);
+                    posX2 = trialposX(bin);
+                    posY2 = trialposY(bin);
+                    x_t = trialSpikes(bin,:);
+                    z_t = [veloX2 posX2 posY2 veloY2]';
+                    A= (z_t*z_t1')*(z_t1*z_t1')^(-1);
+                    C = (x_t'*z_t')*(z_t*z_t')^-1;
+                    Asum = Asum+A;
+                    Csum = C+Csum;
+                end
+            else
+                buffer = false;
+            end
         end
 end
-
-for trial =1:1222
-    trialveloX = fiftyVelo.x{trial};
-    trialposX = fiftyPos.x{trial};
-    trialveloY = fiftyVelo.y{trial};
-    trialposY = fiftyPos.y{trial};
+%%
+buffer = false;
+for trial =1:length(trainingData.veloX)
+    trialveloX = trainingData.veloX{trial};
+    trialposX =  trainingData.posX{trial};
+    trialveloY = trainingData.veloY{trial};
+    trialposY = trainingData.posY{trial};
+    trialSpikes = trainingData.spikes{trial};
     T = length(trialveloX);
         for bin =1:T
-            veloX = fiftyVelo.x{trial}(bin);
-            veloY = fiftyVelo.y{trial}(bin);
-            posX = fiftyPos.x{trial}(bin);
-            posY = fiftyPos.y{trial}(bin);
-            x_t = spikes{trial}(bin,:);
-            z_t = [veloX2 posX2 posY2 veloY2]';
-            Q= (1/(T-1)) * (z_t-A*z_t1)*(z_t-A*z_t1)'^(-1);
-            R = (1/T)* (x_t' - C*z_t)*(x_t'-C*z_t)';
-            Qsum = Q + Qsum;
-            Rsum = R + Rsum;
+            if ~buffer
+                if (isnan(trialveloX(bin))||isnan(trialveloY(bin))||isnan(trialposX(bin))||isnan(trialposY(bin))||isnan(trialSpikes(bin)))
+                    buffer = true;
+                    continue;
+                else
+                    veloX = trialveloX(bin);
+                    veloY = trialveloY(bin);
+                    posX = trialposX(bin);
+                    posY = trialposY(bin);
+                    x_t = trialSpikes(bin,:);
+                    z_t = [veloX posX posY veloY]';
+                    Q= (1/(T-1)) * (z_t-Asum*z_t1)*(z_t-Asum*z_t1)';
+                    R = (1/T)* (x_t' - Csum*z_t)*(x_t'-Csum*z_t)';
+                    Qsum = Q + Qsum;
+                    Rsum = R + Rsum;
+                end
+            else
+                buffer = false;
+            end
         end
 end
 
-% for trial =1:1222
-%     for bin = 1:T
-%         z_t
-%     end
-% end
-% A= (z_t*z_t1'.^T)*(z_t1*z_t1'.^T)^(-1);
-% Q= (1/(T-1)) * (z_t-A*z_t1)*(z_t-A*z_t1)'.^(-1);
+%% testing phase
 
-% R = (1/T)* (x_t' - C*z_t)*(x_t'-C*z_t)'.^T;
-% %% testing phase
