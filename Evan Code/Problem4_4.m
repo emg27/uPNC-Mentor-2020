@@ -3,12 +3,8 @@
 
 [spikes, pos, vel] = Problem4_0_1(Data);
 
-emptyVals = find(sum(vertcat(spikes{:})) == 0);
-
-for n = 1:1222
-    spikes{n}(:,36) = [];
-    spikes{n}(:,37) = [];
-end 
+% I would index to the size of the spikingData variable. INDEXING BY THE
+% SIZE OF SPIKES SMALLEST MATRIX
 
 % firingRateMean=mean(spikes,1);
 % firingRateCovariance=cov(spikes);
@@ -106,21 +102,30 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
   T = length(vel.x{1}); % num of bins used
   
   
-  %% A UPDATE
+  %% A & C UPDATE
   
   firstASum = zeros(4,4);
   secondASum = zeros(4,4);
+  firstSumC = zeros(231,4);
+  secondSumC = zeros(4,1);
+  Xt = zeros(231,1);
+
   
-   for trial=1:size(trainingData.veloX) % outer loop goes through all the trails 
-       T=length(trainingData.veloX{trial}); % inner loop iterates through bin sizes of spike counts per trial
+   for trial=1:size(trainingData.spikes) % outer loop goes through all the trails 
+       
+       T=size(trainingData.spikes{trial}, 1); % inner loop iterates through bin sizes of spike counts per trial
         
         % redefine Zt for each time bin 
 
         for binPos=2:T 
             
+         Xt = trainingData.spikes{trial}(binPos,:); % D = numNeurons needs to be 233 x 1
+
+         Xt = Xt';
+            
           if binPos == T + 1
        
-              break;
+              continue;
           end 
           
 
@@ -153,37 +158,47 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
         
         Zt2 = [posX2, posY2, velX2, velY2]';
                 
-        firstASum =  Zt2*Zt' + firstASum;
+        firstASum =  (Zt2*Zt') + firstASum;
 
-        secondASum = Zt*Zt' + secondASum;
+        secondASum = (Zt*Zt') + secondASum;
+        
+        firstSumC = (Xt*Zt') + firstSumC;
+        
+        secondSumC = (Zt*Zt') + secondSumC;
         
         end                
         
    end 
-   %%
-   
-   %COMPUTE A
-   
-   A = firstASum * secondASum^(-1); % is MxM so 4x4, computing from only Z1 and Z2
+   %% COMPUTE A & C
+
+     
+   A = firstASum * (secondASum)^(-1); % is MxM so 4x4, computing from only Z1 and Z2
+   C = firstSumC * (secondSumC)^(-1); % D x M multiplying a 233x1 by a 1x4 results in 233 x 4
+
  
-   %%
-  
-   %% Q UPDATE
+ 
+   %% Q & R UPDATE
    
    QSum = zeros(4,4);
    firstTermQ = 0;
+   RSum = zeros(231,231);
+   Rtemp = zeros(231,231);
+   Xt = zeros(231,1);
+%    firstTermR = 0;
    
-    for trial=1:size(trainingData.veloX) % outer loop goes through all the trails 
+    for trial=1:size(trainingData.spikes) % outer loop goes through all the trails 
          
-       T=length(trainingData.veloX{trial}); % inner loop iterates through bin sizes of spike counts per trial
+       T=size(trainingData.spikes{trial}, 1); % inner loop iterates through bin sizes of spike counts per trial
         
         % redefine Zt for each time bin 
 
         for binPos=2:T 
             
+             Xt = trainingData.spikes{trial}(binPos,:); % D = numNeurons needs to be 233 x 1
+             
              if binPos == T + 1
        
-              break;
+              continue;
              end 
              
          if(isnan(trainingData.veloX{trial}(binPos)) || isnan(trainingData.veloY{trial}(binPos)) || isnan(trainingData.posX{trial}(binPos)) || isnan(trainingData.posY{trial}(binPos)))
@@ -216,112 +231,21 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
             
         
         QSum = (Zt2-A*Zt)*(Zt2-A*Zt)' + QSum;
-
-
+       
+        RSum = (Xt-C*Zt)*(Xt-C*Zt)'; + RSum;
+        
         end
         
-        firstTermQ = 1/((T-1)+ firstTermQ);
-
+        firstTermQ = (T-1)+ firstTermQ;
         
+        firstTermR = (T + firstTermR);
     end 
       
-   %% COMPUTE Q
+   %% COMPUTE Q & R
    
-  Q = firstTermQ * QSum; % M x M
-  
-
-%% C Update Loop
-
-firstSumC = zeros(231,4);
-secondSumC = zeros(4,1);
-Xt = zeros(231,1);
-
-for trial=1:size(trainingData.veloX) % outer loop goes through all the trails 
-         
-       T=length(trainingData.veloX{trial}); % inner loop iterates through bin sizes of spike counts per trial
-        
-       % COMPUTE Xt
- 
-  % gets the first column for spike counts, 233x1
-       
-         Xt = trainingData.spikes{trial}(2,:)'; % D = numNeurons needs to be 233 x 1
-
-       
-        
-        % redefine Zt for each time bin 
-
-        for binPos=1:T 
-            
-            
-          if(isnan(trainingData.veloX{trial}(binPos)) || isnan(trainingData.veloY{trial}(binPos)) || isnan(trainingData.posX{trial}(binPos)) || isnan(trainingData.posY{trial}(binPos)))
-            
-            continue;
-            
-          end 
-           
-       velX1 = trainingData.veloX{trial}(binPos);
-       velY1 = trainingData.veloY{trial}(binPos);
-       posX1 = trainingData.posX{trial}(binPos);
-       posY1 = trainingData.posY{trial}(binPos);
-        
-         Zt = [posX1, posY1, velX1, velY1]'; %changed order to pos, vel
-                         
-        firstSumC = (Xt*Zt') + firstSumC;
-        
-        secondSumC = (Zt*Zt')^(-1) + secondSumC; 
-        
-        end
-        
-end
-%% COMPUTE C
-
-        C = firstSumC * secondSumC; % D x M multiplying a 233x1 by a 1x4 results in 233 x 4
-
-
-%% R Update Loop
-
- RSum = zeros(231,231);
- Xt = zeros(231,1);
- firstTermR = 0;
-   
-    for trial=1:size(trainingData.veloX) % outer loop goes through all the trails 
-         
-       T=length(trainingData.veloX{trial}); % inner loop iterates through bin sizes of spike counts per trial
-        
-       Xt = trainingData.spikes{trial}(2,:)'; % D = numNeurons needs to be 233 x 1
-
-        % redefine Zt for each time bin 
-
-        for binPos=1:T 
-             
-             if(isnan(trainingData.veloX{trial}(binPos)) || isnan(trainingData.veloY{trial}(binPos)) || isnan(trainingData.posX{trial}(binPos)) || isnan(trainingData.posY{trial}(binPos)))
-            
-            continue;
-            
-             end 
-              
-       velX1 = trainingData.veloX{trial}(binPos);
-       velY1 = trainingData.veloY{trial}(binPos);
-       posX1 = trainingData.posX{trial}(binPos);
-       posY1 = trainingData.posY{trial}(binPos);
-                
-        Zt = [posX1, posY1, velX1, velY1]'; %changed order to pos, vel
-        
-        RSum = (Xt - C*Zt)*(Xt-C*Zt)'; + RSum;
-
-
-        end
-        
-        firstTermR = 1/(T+ firstTermR);
-
-        
-    end 
-
-%% COMPUTE R
-
-R = firstTermR * RSum; % D x D (233 x 233)
-
-  
+  Q = (1/firstTermQ) * QSum; % M x M
+  R = (1/firstTermR) * RSum;
+%   R = (1/firstTermR) * RSum; % D x D (233 x 233)
 
 %% Testing Phase
 
@@ -360,57 +284,87 @@ spikesRemovedZeros = spikes(cellfun(@(x) ~isequal(x, 0), spikes));
 
 %% LOOPING KALMAN FUNCTION
 
-predictions.predictedmu = {808};
-predictions.predictedsigma = {808};
+predictedValues.muPos(length(posXRemovedZeros)) = {1};
+predictedValues.muVelo(length(posXRemovedZeros)) ={1};
+predictedValues.sig(length(posXRemovedZeros)) = {1};
 
-for trial=1:size(pos.x) % outer loop goes through all the trails 
+Z_1_values = [];
+
+
+for trial=1:size(spikesRemovedZeros,2) % outer loop goes through all the trails 
          
-       T=length(posXRemovedZeros{trial}); % inner loop iterates through bin sizes of spike counts per trial
+       T=size(spikesRemovedZeros{trial}, 1); % inner loop iterates through bin sizes of spike counts per trial
         
-       Xt = spikesRemovedZeros{trial}'; % D = numNeurons needs to be 231 x 1
-                                              
-       xPos = posXRemovedZeros{trial};
-
-       [mu,sig] = kalmanFilter(xPos, A, Q, R, C, Xt, V);
-
-       predictions.predictedmu{trial} = mu(1,1:T);
-%        predictions.predictedsigma{trial} = sig(;
+       velX1 = velXRemovedZeros{trial};
+       velY1 = velYRemovedZeros{trial};
+       posX1 = posXRemovedZeros{trial};
+       posY1 = posYRemovedZeros{trial};
+    
+       Z_1_values = [[posX1(1), posY1(1), velX1(1), velY1(1)]; Z_1_values];
        
-        
+       Z_1_mean = mean(Z_1_values)';
+       Z_1_covar = cov(Z_1_values);
 end 
-
-function [mu, sig] = kalmanFilter(xPos, A, Q, R, C, Xt, V)
-
-
-T = size(Xt,2); % needs to be the bin size
-% 
-mu = zeros(1,T); % 2 by bin size
-sig = zeros(1,T);
-
-for n=1:T
-    if n==1
-        mu1(:,n) = xPos(n);
-        sig1{n} = V;
-    else 
-        mu1(:,n) = A*mu(:,n-1);
-        sig1{n} = A*sig{n-1}*A' + Q;
-    end 
-    
-    Kt = sig1{n}*C'*inv(C*sig1{n}*C'+R);
-    mu(:,n) = mu1(:,n) + Kt*(Xt(:,n) - C*mu1(:,n));
-    sig{n} = sig1{n} - Kt*C*sig1{n}; 
-    
-end 
-
-
-end 
-
-
-
-
-
 %%
 
+for trial=1:size(spikesRemovedZeros,2) % outer loop goes through all the trails 
+
+     T=size(spikesRemovedZeros{trial}, 1); % inner loop iterates through bin sizes of spike counts per trial
+
+       for binPos = 1:T
+           
+       mu = zeros(size(Z_1_mean)); % 2 by bin size should be 4x1
+       sig = zeros(size(Z_1_covar,2));
+       mu1 = zeros(size(Z_1_mean,2))'; % 4x1
+       sig1 = zeros(size(Z_1_covar,2)); % 4x4
+           
+       Xt = spikesRemovedZeros{trial}(binPos,:); % D = numNeurons needs to be 231 x 1
+
+       Xt = Xt';
+       
+       if binPos == 1
+           
+        mu1 = Z_1_mean;
+        sig1 = Z_1_covar;
+        
+        else 
+            
+        mu1 = A*mu;
+        sig1 = A*sig*A' + Q;
+        
+       end 
+       
+        Kt = sig1*C'*(C*sig1*C'+R); % dimension of 231x4
+        mu = mu1 + Kt*(Xt - C*mu1); % dimension of 4x1
+        sig = sig1 - Kt*C*sig1; 
+        
+        if binPos == 1
+             predictedValues.muPos{trial} = mu(1:2)';
+             predictedValues.muVelo{trial} =mu(3:4)';
+             predictedValues.sig{trial} = sig;
+            
+        else 
+        
+           predictedValues.muPos{trial} = [predictedValues.muPos{trial}; mu(1:2)'];
+           predictedValues.muVelo{trial} = [predictedValues.muVelo{trial}; mu(3:4)'];       
+           predictedValues.sig{trial} = [predictedValues.sig{trial}; sig];
+       
+        end 
+       end
+end 
+
+
+figure;
+for trial =1:length(posXRemovedZeros)
+    if trial==1
+         plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'b')
+        plot(posXRemovedZeros{trial}, posYRemovedZeros{trial})
+        hold on
+    else
+         plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'k')
+         plot(posXRemovedZeros{trial}, posYRemovedZeros{trial})
+    end
+end
 
 
 
