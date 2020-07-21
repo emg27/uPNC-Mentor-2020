@@ -39,20 +39,20 @@ trainingData.posX = {808};
 trainingData.posY = {808};
 trainingData.spikes= {808};
 
-sortedIndex = [];
-for i =1:length(angles)
-    index = reachAngles==angles(i);
-    for f=1:length(index)
-        if index(f)==1&&count<101
-            sortedIndex = [sortedIndex f];
-            count = count +1;
-        elseif index(f)==1&&count>=101
-            count = 0;
-            break;
-        end
-    end
-end
-
+% sortedIndex = [];
+% for i =1:length(angles)
+%     index = reachAngles==angles(i);
+%     for f=1:length(index)
+%         if index(f)==1&&count<101
+%             sortedIndex = [sortedIndex f];
+%             count = count +1;
+%         elseif index(f)==1&&count>=101
+%             count = 0;
+%             break;
+%         end
+%     end
+% end
+sortedIndex = [1:1:808];
 
 %%
 for i = 1:length(sortedIndex)
@@ -133,7 +133,7 @@ for trial =1:length(trainingData.spikes)
                     Atop = Atop+ (z_t*z_t1');
                     Abottom = Abottom+ (z_t1*z_t1');
                     Ctop = Ctop +(x_t'*z_t');
-                    Cbottom = Cbottom+ (z_t*z_t')^-1;
+                    Cbottom = Cbottom+ (z_t*z_t');
                 end
         end
 end
@@ -177,16 +177,15 @@ for trial =1:length(trainingData.spikes)
                         posY2 = trialposY(bin);
                         x_t = trialSpikes(bin,:);
                         z_t = [ posX2 posY2 veloX2 veloY2]';
-                        firstTermQ = (T-1)+ firstTermQ;
-                        QSum1 = (z_t-(A*z_t1))*(z_t-(A*z_t1))'+QSum1; %+ QSum1;
-                        QSum= (1/firstTermQ) * QSum1; % M xM
+                        QSum1 = (z_t-A*z_t1)*(z_t-A*z_t1)' +QSum1; %+ QSum1;
                         R = (1/T)* (x_t' - C*z_t)*(x_t'-C*z_t)';
                         Rsum = R + Rsum;
                     end
+                    firstTermQ = (T-1)+ firstTermQ;
         end
 end
 
-Q = QSum;
+Q= (1/firstTermQ) * QSum1;
 R = Rsum;
 %% testing phase
 %% Fit step
@@ -198,7 +197,7 @@ Z_1 = zeros(length(testingPosX),M);
 for trial=1:length(testingPosX)
     Z_1(trial,:) = [testingPosX{trial}(1) testingPosY{trial}(1) testingVeloX{trial}(1) testingVeloY{trial}(1)];
 end
-Z_1_mean = mean(Z_1,1)';
+Z_1_mean = mean(Z_1)';
 Z_1_covar = cov(Z_1);
 
 %%
@@ -218,6 +217,7 @@ for trial=1:length(testingPosX)
        end
        k_t = Sig_t1*C'*(C*Sig_t1*C'+R)^(-1);
        Mu_t= Mu_t1+k_t*(testingSpikes{trial}(bin,:)'-C*Mu_t1);
+       Mu_t(1:2)';
        Sig_t = Sig_t1-k_t*C*Sig_t1(bin);
        if bin==1
            predictedValues.muPos{trial} = Mu_t(1:2)';
@@ -236,12 +236,11 @@ for trial =1:length(testingPosX)
     if trial==1
         
         plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'b')
-
-%         plot(testingPosX{trial}, testingPosY{trial})
         hold on
+        plot(testingPosX{trial}, testingPosY{trial})
+        
     else
         plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'k')
-
-%         plot(testingPosX{trial}, testingPosY{trial})
+        plot(testingPosX{trial}, testingPosY{trial})
     end
 end
