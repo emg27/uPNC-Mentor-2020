@@ -39,19 +39,19 @@ trainingData.posX = {808};
 trainingData.posY = {808};
 trainingData.spikes= {808};
 
-% sortedIndex = [];
-% for i =1:length(angles)
-%     index = reachAngles==angles(i);
-%     for f=1:length(index)
-%         if index(f)==1&&count<101
-%             sortedIndex = [sortedIndex f];
-%             count = count +1;
-%         elseif index(f)==1&&count>=101
-%             count = 0;
-%             break;
-%         end
-%     end
-% end
+sortedIndex = [];
+for i =1:length(angles)
+    index = reachAngles==angles(i);
+    for f=1:length(index)
+        if index(f)==1&&count<101
+            sortedIndex = [sortedIndex f];
+            count = count +1;
+        elseif index(f)==1&&count>=101
+            count = 0;
+            break;
+        end
+    end
+end
 sortedIndex = [1:1:808];
 
 %%
@@ -85,6 +85,7 @@ testingSpikes = spikes(cellfun(@(j) ~isequal(j,0), spikes));
 QSum= zeros(M,M);
 QSum1= zeros(M,M);
 firstTermQ= 0;
+firstTermR= 0;
 Rsum = zeros(D,D);
 %Prediction 
 for trial =1:length(trainingData.spikes)
@@ -102,7 +103,16 @@ for trial =1:length(trainingData.spikes)
                 if (isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
                     continue; 
                 end
-                if bin ==2
+                if bin ==1
+                    veloX2 = trialveloX(bin);
+                    veloY2 = trialveloY(bin);
+                    posX2 = trialposX(bin);
+                    posY2 = trialposY(bin);
+                    x_t = trialSpikes(bin,:);
+                    z_t = [posX2 posY2 veloX2 veloY2]';
+                    Ctop = (x_t'*z_t');
+                    Cbottom = (z_t*z_t');
+                elseif bin ==2
                     veloX = trialveloX(bin-1);
                     veloY = trialveloY(bin-1);
                     posX = trialposX(bin-1);
@@ -116,8 +126,8 @@ for trial =1:length(trainingData.spikes)
                     z_t = [posX2 posY2 veloX2 veloY2]';
                     Atop =(z_t*z_t1');
                     Abottom =(z_t1*z_t1');
-                    Ctop = (x_t'*z_t');
-                    Cbottom = (z_t*z_t')^-1;
+                    Ctop = Ctop+ (x_t'*z_t');
+                    Cbottom = Cbottom+ (z_t*z_t');
                 else
                     veloX = trialveloX(bin-1);
                     veloY = trialveloY(bin-1);
@@ -156,14 +166,15 @@ for trial =1:length(trainingData.spikes)
                 end
                 end
                     if bin==1
-                        veloX = trialveloX(bin);
-                        veloY = trialveloY(bin);
-                        posX = trialposX(bin);
-                        posY = trialposY(bin);
-                        x_t = trialSpikes(bin,:);
-                        z_t = [posX posY veloX veloY]';
-                        R = (1/T)* (x_t' - C*z_t)*(x_t'-C*z_t)';
-                        Rsum = R + Rsum;
+%                         veloX = trialveloX(bin);
+%                         veloY = trialveloY(bin);
+%                         posX = trialposX(bin);
+%                         posY = trialposY(bin);
+%                         x_t = trialSpikes(bin,:);
+%                         z_t = [posX posY veloX veloY]';
+%                         R = (x_t' - C*z_t)*(x_t'-C*z_t)';
+%                         Rsum = R + Rsum;
+                          continue;
                     else
                         veloX = trialveloX(bin-1);
                         veloY = trialveloY(bin-1);
@@ -243,3 +254,4 @@ for trial =1:length(testingPosX)
         plot(testingPosX{trial}, testingPosY{trial})
     end
 end
+hold off
