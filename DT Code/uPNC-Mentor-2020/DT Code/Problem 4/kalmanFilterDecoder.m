@@ -139,7 +139,6 @@ for trial =1:length(trainingData.spikes)
 end
 A = Atop*Abottom^(-1);
 C = Ctop*Cbottom^(-1);
-%%
 for trial =1:length(trainingData.spikes)
     trialveloX = trainingData.veloX{trial};
     trialposX =  trainingData.posX{trial};
@@ -178,15 +177,16 @@ for trial =1:length(trainingData.spikes)
                         x_t = trialSpikes(bin,:);
                         z_t = [ posX2 posY2 veloX2 veloY2]';
                         QSum1 = (z_t-A*z_t1)*(z_t-A*z_t1)' +QSum1; %+ QSum1;
-                        R = (1/T)* (x_t' - C*z_t)*(x_t'-C*z_t)';
+                        R =(x_t' - C*z_t)*(x_t'-C*z_t)';
                         Rsum = R + Rsum;
                     end
                     firstTermQ = (T-1)+ firstTermQ;
+                    firstTermR = (T)+ firstTermQ;
         end
 end
 
 Q= (1/firstTermQ) * QSum1;
-R = Rsum;
+R = (1/firstTermR) *Rsum;
 %% testing phase
 %% Fit step
 predictedValues.muPos(length(testingPosX)) = {1};
@@ -211,13 +211,13 @@ for trial=1:length(testingPosX)
        if bin ==1
            Mu_t1 = Z_1_mean;
            Sig_t1 = Z_1_covar;
+
        else
            Mu_t1 = A*Mu_t;
            Sig_t1 = A*Sig_t*A'+Q;
        end
        k_t = Sig_t1*C'*(C*Sig_t1*C'+R)^(-1);
        Mu_t= Mu_t1+k_t*(testingSpikes{trial}(bin,:)'-C*Mu_t1);
-       Mu_t(1:2)';
        Sig_t = Sig_t1-k_t*C*Sig_t1(bin);
        if bin==1
            predictedValues.muPos{trial} = Mu_t(1:2)';
@@ -230,7 +230,6 @@ for trial=1:length(testingPosX)
        end
     end 
 end
-%%
 figure;
 for trial =1:length(testingPosX)
     if trial==1
