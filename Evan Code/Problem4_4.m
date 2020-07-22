@@ -66,40 +66,6 @@ end
 
 
 
-%%
-
-velX = vel.x{1}(1);
-velY = vel.y{1}(1);
-posX = pos.x{1}(1);
-posY = pos.y{1}(1);
-
-% 4 x 1
-Zt = [velX, posX, posY, velY]'; % would it be a tuple of the x and y value? Or multidirectional movements is 4 =  Mx1
-
-
-velX = vel.x{1}(2);
-velY = vel.y{1}(2);
-posX = pos.x{1}(2);
-posY = pos.y{1}(2);
-
-% 4 x 1
-Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
-
-% [ vel.x ] 
-% [ pos.x ] 
-% [ pos.y ]    
-% [ vel.y ] 
-
-
-% Training Phase
-
-
-% Initialization
-
-
-  % sum from 2 to T (T being the number of bins)
-  
-  T = length(vel.x{1}); % num of bins used
   
   
   %% A & C UPDATE
@@ -158,9 +124,9 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
         
         Zt2 = [posX2, posY2, velX2, velY2]';
                 
-        firstASum =  (Zt2*Zt') + firstASum;
+        firstASum =  (Zt*Zt2') + firstASum;
 
-        secondASum = (Zt*Zt') + secondASum;
+        secondASum = (Zt2*Zt2') + secondASum;
         
         firstSumC = (Xt*Zt') + firstSumC;
         
@@ -182,9 +148,8 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
    QSum = zeros(4,4);
    firstTermQ = 0;
    RSum = zeros(231,231);
-   Rtemp = zeros(231,231);
    Xt = zeros(231,1);
-%    firstTermR = 0;
+   firstTermR = 0;
    
     for trial=1:size(trainingData.spikes) % outer loop goes through all the trails 
          
@@ -194,7 +159,7 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
 
         for binPos=2:T 
             
-             Xt = trainingData.spikes{trial}(binPos,:); % D = numNeurons needs to be 233 x 1
+             Xt = trainingData.spikes{trial}(binPos,:)'; % D = numNeurons needs to be 233 x 1
              
              if binPos == T + 1
        
@@ -230,9 +195,9 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
         Zt2 = [posX2, posY2, velX2, velY2]';
             
         
-        QSum = (Zt2-A*Zt)*(Zt2-A*Zt)' + QSum;
+        QSum = (Zt-A*Zt2)*((Zt-A*Zt2)') + QSum;
        
-        RSum = (Xt-C*Zt)*(Xt-C*Zt)'; + RSum;
+        RSum = (Xt-C*Zt)*((Xt-C*Zt)') + RSum;
         
         end
         
@@ -248,12 +213,6 @@ Zt2 = [velX, posX, posY, velY]'; % second Zt value for intialization
 %   R = (1/firstTermR) * RSum; % D x D (233 x 233)
 
 %% Testing Phase
-
-% predicting next xPos based on the kalfilter
-
-PI = 0;
-V = 0;
-
 %% PREPROCESSING THE TESTING DATA, removing empty cells, put in new structs
 
 for i=1:size(pos.x,2)
@@ -311,7 +270,7 @@ for trial=1:size(spikesRemovedZeros,2) % outer loop goes through all the trails
 
      T=size(spikesRemovedZeros{trial}, 1); % inner loop iterates through bin sizes of spike counts per trial
 
-       for binPos = 1:T
+       for binPos = 2:T
            
        mu = zeros(size(Z_1_mean)); % 2 by bin size should be 4x1
        sig = zeros(size(Z_1_covar,2));
