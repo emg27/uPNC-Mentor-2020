@@ -1,4 +1,4 @@
-% function predictedValues = kalmanFilterDecoder(Data)
+function predictedValues = kalmanFilterDecoder(Data)
 % M  = parameters %velo pos etc
 % D = numNeurons;
 % time = []
@@ -30,14 +30,16 @@ D = length(spikes{1}(2,:));
 M = 4;
 
 %%
+testingCoeff = .9;
+testingsize = length(data)*testingCoeff;
 angles = [0 45 90 135 180 225 270 315];
 reachAngles = data(:,1);
 count = 0;
-trainingData.veloX = {808};
-trainingData.veloY = {808};
-trainingData.posX = {808};
-trainingData.posY = {808};
-trainingData.spikes= {808};
+trainingData.veloX = {testingsize};
+trainingData.veloY = {testingsize};
+trainingData.posX = {testingsize};
+trainingData.posY = {testingsize};
+trainingData.spikes= {testingsize};
 
 sortedIndex = [];
 for i =1:length(angles)
@@ -46,14 +48,12 @@ for i =1:length(angles)
         if index(f)==1&&count<101
             sortedIndex = [sortedIndex f];
             count = count +1;
-        elseif index(f)==1&&count>=101
+        elseif index(f)==1&&count>=(testingsize/8)
             count = 0;
             break;
         end
     end
 end
-sortedIndex = [1:1:808];
-
 %%
 for i = 1:length(sortedIndex)
     trainingData.veloX{i} = fiftyVelo.x{sortedIndex(i)};
@@ -96,11 +96,11 @@ for trial =1:length(trainingData.spikes)
     trialposY = trainingData.posY{trial};
     trialSpikes = trainingData.spikes{trial};  
     T = size(trialSpikes,1);
-        for bin =2:T
+        for bin =1:T
                 if (isnan(trialveloX(bin))||isnan(trialveloY(bin))||isnan(trialposX(bin))||isnan(trialposY(bin))||isnan(trialSpikes(bin)))
                     continue;
                 end
-                if (isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
+                if bin~=1&&(isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
                     continue; 
                 end
                 if bin ==1
@@ -160,10 +160,10 @@ for trial =1:length(trainingData.spikes)
                 if (isnan(trialveloX(bin))||isnan(trialveloY(bin))||isnan(trialposX(bin))||isnan(trialposY(bin))||isnan(trialSpikes(bin)))
                     continue;
                 end
-                if bin ~= 1
-                if (isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
+
+                if bin~=1&&(isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
                     continue; 
-                end
+
                 end
                     if bin==1
 %                         veloX = trialveloX(bin);
@@ -241,17 +241,21 @@ for trial=1:length(testingPosX)
        end
     end 
 end
+%%
 figure;
-for trial =1:length(testingPosX)
-    if trial==1
-        
-        plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'b')
+for trial =1:30
+        tempPosX = zeros(length(predictedValues.muPos{trial}));
+        tempPosY = zeros(length(predictedValues.muPos{trial}));
+        for bin = 1:length(predictedValues.muPos{trial})
+            if bin ==1
+                tempPosX(1) = predictedValues.muPos{trial}(1,1);
+                tempPosY(1) = predictedValues.muPos{trial}(1,2);
+            else
+                tempPosX(bin) = tempPosX(bin-1)+predictedValues.muVelo{trial}(bin,1)*0.05;
+                tempPosY(bin) = tempPosY(bin-1)+predictedValues.muVelo{trial}(bin,2)*0.05;
+            end 
+        end
+        plot(tempPosX, tempPosY, 'Color', 'k')
         hold on
-        plot(testingPosX{trial}, testingPosY{trial})
-        
-    else
-        plot(predictedValues.muPos{trial}(:,1), predictedValues.muPos{trial}(:,2), 'Color', 'k')
-        plot(testingPosX{trial}, testingPosY{trial})
-    end
+        plot(testingPosX{trial}, testingPosY{trial}, 'Color', 'g')
 end
-hold off
