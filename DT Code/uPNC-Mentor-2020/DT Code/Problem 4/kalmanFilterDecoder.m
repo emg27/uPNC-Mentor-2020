@@ -1,4 +1,4 @@
-function predictedValues = kalmanFilterDecoder(Data)
+% function predictedValues = kalmanFilterDecoder(Data)
 % M  = parameters %velo pos etc
 % D = numNeurons;
 % time = []
@@ -30,8 +30,12 @@ D = length(spikes{1}(2,:));
 M = 4;
 
 %%
-testingCoeff = .9;
-testingsize = length(data)*testingCoeff;
+testingCoeff = 0.90;
+testingsize = floor(length(data)*testingCoeff);
+while rem(testingsize,8)~=0
+    testingsize = testingsize +1;
+end
+%%
 angles = [0 45 90 135 180 225 270 315];
 reachAngles = data(:,1);
 count = 0;
@@ -45,7 +49,7 @@ sortedIndex = [];
 for i =1:length(angles)
     index = reachAngles==angles(i);
     for f=1:length(index)
-        if index(f)==1&&count<101
+        if index(f)==1&&count<(testingsize/8)
             sortedIndex = [sortedIndex f];
             count = count +1;
         elseif index(f)==1&&count>=(testingsize/8)
@@ -166,15 +170,15 @@ for trial =1:length(trainingData.spikes)
 
                 end
                     if bin==1
-%                         veloX = trialveloX(bin);
-%                         veloY = trialveloY(bin);
-%                         posX = trialposX(bin);
-%                         posY = trialposY(bin);
-%                         x_t = trialSpikes(bin,:);
-%                         z_t = [posX posY veloX veloY]';
-%                         R = (x_t' - C*z_t)*(x_t'-C*z_t)';
-%                         Rsum = R + Rsum;
-                          continue;
+                        veloX = trialveloX(bin);
+                        veloY = trialveloY(bin);
+                        posX = trialposX(bin);
+                        posY = trialposY(bin);
+                        x_t = trialSpikes(bin,:);
+                        z_t = [posX posY veloX veloY]';
+                        R = (x_t' - C*z_t)*(x_t'-C*z_t)';
+                        Rsum = R + Rsum;
+   
                     else
                         veloX = trialveloX(bin-1);
                         veloY = trialveloY(bin-1);
@@ -243,7 +247,7 @@ for trial=1:length(testingPosX)
 end
 %%
 figure;
-for trial =1:30
+for trial =1:length(predictedValues.muPos)
         tempPosX = zeros(length(predictedValues.muPos{trial}));
         tempPosY = zeros(length(predictedValues.muPos{trial}));
         for bin = 1:length(predictedValues.muPos{trial})
