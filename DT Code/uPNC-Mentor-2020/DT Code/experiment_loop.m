@@ -4,17 +4,20 @@ filename = input('Please input the name of the file here: ', 's');
 tic
 %load data file with name Data
 load(filename)
-switch Data(1).Overview.trialName
-    case contains(Data(1).Overview.trialName,'BC','IgnoreCase',true)
-        [spikes,fiftyPos,fiftyVelo] = PosVeloTimeBC(Data);
-        
-    case contains(Data(1).Overview.trialName,'BC','IgnoreCase',true)
+BC = contains(Data(1).Overview.trialName,'BC','IgnoreCase',true);
+if BC
+	[spikes,fiftyPos,fiftyVelo] = PosVeloTimeBC(Data);
+else
+    [spikes,fiftyPos,fiftyVelo] = PosVeloTime(Data);
+    data = pmdDataSetup(Data);
 end
+%%
 
+for i=1:5
 neuronLength = length(spikes{1}(2,:));
 veloData = fiftyVelo;
 posData =fiftyPos;
-data = pmdDataSetup(Data);
+tempSpikes = spikes;
 %%
 kalmanErrorPlotting = zeros(neuronLength,2);
 kalmanDistancePlotting = zeros(neuronLength,2);
@@ -31,22 +34,31 @@ linPosErrorPlotting = zeros(neuronLength,2);
 linPosDistancePlotting = zeros(neuronLength,2);
 
 linVeloErrorPlotting = zeros(neuronLength,2);
-
 %%
-for neuron =neuronLength:-1:1
+for neuron =neuronLength:-1:226
     if neuron~=neuronLength
-        dropppedNeuron = randi([1 size(spikes{trial},2)],1);
-        for trial =1:length(spikes)
-            spikes{trial}(:,dropppedNeuron)=[];
+        dropppedNeuron = randi([1 size(tempSpikes{neuron},2)],1);
+        for trial =1:length(tempSpikes)
+            tempSpikes{trial}(:,dropppedNeuron)=[];
         end
     end
+    b = randi([1 10000], 1);
     %plot performance vs neurons dropped
-    outputKalman = kalmanFilterDecoder(data, veloData, posData, spikes, false);
-    outputKalPos = PosKalmanFilterDecoder(data,posData, spikes);
-    outputKalVelo = VelokalmanFilterDecoder(data, veloData, spikes);
-    outputLinear= linearRegression(data, spikes, pos, velo,false);
-    outputLinearPos = PoslinearRegression(data, spikes, posData,false);
-    outputLinearVelo = VelolinearRegression(data, spikes,veloData,false);
+    if BC
+        outputKalman = kalmanFilterDecoderBC(veloData, posData, tempSpikes, false,b);
+        outputKalPos = PosKalmanFilterDecoderBC(posData, tempSpikes,b);
+        outputKalVelo = VelokalmanFilterDecoderBC(veloData, tempSpikes,b);
+        outputLinear= linearRegression(tempSpikes, posData, veloData,false,b);
+        outputLinearPos = PoslinearRegression(tempSpikes, posData,false,b);
+        outputLinearVelo = VelolinearRegression(tempSpikes,veloData,false,b);
+    else
+        outputKalman = kalmanFilterDecoder(data, veloData, posData, tempSpikes, false,b);
+        outputKalPos = PosKalmanFilterDecoder(data,posData, tempSpikes,b);
+        outputKalVelo = VelokalmanFilterDecoder(data, veloData, tempSpikes,b);
+        outputLinear= linearRegression(tempSpikes, posData, veloData,false,b);
+        outputLinearPos = PoslinearRegression(tempSpikes, posData,false,b);
+        outputLinearVelo = VelolinearRegression(tempSpikes,veloData,false,b);
+    end
     %%
     kalmanErrorPlotting(neuron, :) = [neuron outputKalman.Errorperformance];
     kalmanDistancePlotting(neuron, :) = [neuron outputKalman.Distanceperformance];
@@ -63,69 +75,59 @@ for neuron =neuronLength:-1:1
     linPosDistancePlotting(neuron, :) = [neuron outputLinearPos.Distanceperformance];
     %%
     linVeloErrorPlotting(neuron, :) = [neuron outputLinearVelo.Errorperformance];
-    
 end
 %%
-close all;
-plot(kalmanErrorPlotting(:,1), kalmanErrorPlotting(:,2))
-xlabel('Number of Neurons')
-ylabel('Error Performance of the Kalman filter')
-title('The Relationship of Neuron Dropping to Error Performance')
-set(gca, 'XDir','reverse')
-grid
-figure;
-plot(kalmanDistancePlotting(:,1), kalmanDistancePlotting(:,2), 'Color', 'r')
-xlabel('Number of Neurons')
-ylabel('Distance Performance of the Kalman filter')
-title('The Relationship of Neuron Dropping to Distance Performance')
-set(gca, 'XDir','reverse')
-grid
+
 %%
-figure;
-plot(kalPosErrorPlotting(:,1), kalPosErrorPlotting(:,2))
+plot(kalmanErrorPlotting(:,1), kalmanErrorPlotting(:,2), 'Color', 'k')
+hold on
+plot(kalPosErrorPlotting(:,1), kalPosErrorPlotting(:,2), 'Color', 'r')
 xlabel('Number of Neurons')
-ylabel('Error Performance of the Kalman filter')
-title('The Relationship of Neuron Dropping to Error Performance in Position Kalman filter')
+ylabel('Percent Error Performance')
+title('The Relationship of Neuron Dropping to Error Performance for the Kalman Filter')
 set(gca, 'XDir','reverse')
+set(gca, 'YDir','reverse')
 grid
+hold off
 figure;
+plot(kalVeloErrorPlotting(:,1), kalVeloErrorPlotting(:,2), 'Color', 'b')
+xlabel('Number of Neurons')
+ylabel('Percent Error Performance')
+title('The Relationship of Neuron Dropping to Error Performance for the Kalman Filter')
+set(gca, 'XDir','reverse')
+set(gca, 'YDir','reverse')
+figure; 
+hold on
+plot(kalmanDistancePlotting(:,1), kalmanDistancePlotting(:,2), 'Color', 'k')
 plot(kalPosDistancePlotting(:,1), kalPosDistancePlotting(:,2), 'Color', 'r')
 xlabel('Number of Neurons')
-ylabel('Distance Performance of the Position Kalman filter')
-title('The Relationship of Neuron Dropping to Distance Performance in Pos')
+ylabel('Distance Performance')
+title('Distance Performance of the Kalman filter as Neurons are Dropped')
 set(gca, 'XDir','reverse')
+set(gca, 'YDir','reverse')
 grid
+hold off
 %%
 figure;
-plot(kalVeloErrorPlotting(:,1), kalVeloErrorPlotting(:,2))
+hold on
+plot(linearErrorPlotting(:,1), linearErrorPlotting(:,2), 'Color', 'k')
+plot(linPosErrorPlotting(:,1), linPosErrorPlotting(:,2), 'Color', 'r')
+plot(linVeloErrorPlotting(:,1), linVeloErrorPlotting(:,2), 'Color', 'b')
 xlabel('Number of Neurons')
-ylabel('Error Performance of the Velocity Kalman filter')
-title('The Relationship of Neuron Dropping to Error Performance in Velocity Kalman')
+ylabel('Percent Error Performance')
+title('Error Performance of the Linear Regression Decoder as Neurons are Dropped')
 set(gca, 'XDir','reverse')
-grid
-%%
-% plot(linearErrorPlotting(:,1), linearErrorPlotting(:,2))
-% xlabel('Number of Neurons')
-% ylabel('Error Performance of the linear regression decoder')
-% title('The Relationship of Neuron Dropping to Error Performance')
-% figure;
-% plot(linearDistancePlotting(:,1), linearDistancePlotting(:,2))
-% xlabel('Number of Neurons')
-% ylabel('Distance Performance of the linear regression decoder')
-% title('The Relationship of Neuron Dropping to Distance Performance')
-%%
-plot(linPosErrorPlotting(:,1), linPosErrorPlotting(:,2))
-xlabel('Number of Neurons')
-ylabel('Error Performance of the linear position decoder')
-title('The Relationship of Neuron Dropping to Error Performance')
+set(gca, 'YDir','reverse')
+hold off
 figure;
+hold on
+plot(linearDistancePlotting(:,1), linearDistancePlotting(:,2))
 plot(linPosDistancePlotting(:,1), linPosDistancePlotting(:,2))
 xlabel('Number of Neurons')
-ylabel('Distance Performance of the linear position decoder')
-title('The Relationship of Neuron Dropping to Distance Performance')
-%%
-plot(linVeloErrorPlotting(:,1), linVeloErrorPlotting(:,2))
-xlabel('Number of Neurons')
-ylabel('Error Performance of the velocity linear decoder')
-title('The Relationship of Neuron Dropping to Error Performance')
+ylabel('Distance Performance')
+title('The Relationship of Neuron Dropping to Distance Performance using Linear Regression')
+set(gca, 'XDir','reverse')
+set(gca, 'YDir','reverse')
+hold off
+end
 toc
