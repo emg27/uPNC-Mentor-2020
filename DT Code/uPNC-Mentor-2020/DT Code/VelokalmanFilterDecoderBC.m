@@ -1,24 +1,22 @@
-function predictedValues = VelokalmanFilterDecoder(data, veloData, spikes, independent)
+function predictedValues = VelokalmanFilterDecoderBC(veloData, spikes, independent)
 
 D = length(spikes{1}(2,:));
 M = 2;
 
 %%
 testingCoeff = 0.90;
-testingsize = floor(length(data)*testingCoeff);
+testingsize = floor(length(veloData.x)*testingCoeff);
 while rem(testingsize,8)~=0
     testingsize = testingsize +1;
 end
 %%
-angles = [0 45 90 135 180 225 270 315];
-reachAngles = data(:,1);
-count = 0;
 trainingData.veloX = {testingsize};
 trainingData.veloY = {testingsize};
 trainingData.spikes= {testingsize};
 rng('default')
 rng(independent)
-sortedIndex = randperm(length(data));
+varyingTrials = randperm(length(veloData.x));
+sortedIndex = varyingTrials(1:testingsize);
 %%
 for i = 1:length(sortedIndex)
     trainingData.veloX{i} = veloData.x{sortedIndex(i)};
@@ -188,12 +186,12 @@ for trial= 1:length(testingVeloX)
        if (max(max(isnan(predictedValues.muVelo{trial}(:,1)))) == 1 || max(max(isnan(predictedValues.muVelo{trial}(:,2)))) == 1 || max(max(isnan(testingVeloX{trial}(1:end-1)))) == 1 || max(max(isnan(testingVeloY{trial}(1:end-1)))) == 1)
            continue;
        end
-       xv = abs(predictedValues.muVelo{trial}(:,1) - testingVeloX{trial}(1:end-1))/(testingVeloX{trial}(1:end-1));
-       yv = abs(predictedValues.muVelo{trial}(:,2) - testingVeloY{trial}(1:end-1))/(testingVeloY{trial}(1:end-1));
+       xv = abs(predictedValues.muVelo{trial}(:,1) - testingVeloX{trial}/(testingVeloX{trial}));
+       yv = abs(predictedValues.muVelo{trial}(:,2) - testingVeloY{trial}/(testingVeloY{trial}));
        error.diffXVelo{trial} = xv((xv ~= 0));
        error.diffYVelo{trial} = yv((yv ~= 0));
-       meanErrorVeloX(trial) = mean(error.diffXVelo{trial},1);
-       meanErrorVeloY(trial) = mean(error.diffYVelo{trial},1);
+       meanErrorVeloX(trial) = mean(error.diffXVelo{trial});
+       meanErrorVeloY(trial) = mean(error.diffYVelo{trial});
 
 end
 predictedValues.Errorperformance= mean([mean(abs(meanErrorVeloX))*100, mean(abs(meanErrorVeloY))*100]);

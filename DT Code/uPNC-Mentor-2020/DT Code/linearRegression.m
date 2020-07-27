@@ -1,4 +1,4 @@
-function predictedValues =PoslinearRegression(spikes, pos,wantComputerToDie,independent)
+function predictedValues =linearRegression(spikes, posData, veloData,wantComputerToDie, independent)
 numTrials = size(spikes,2);
 X = [];
 y = []; 
@@ -14,9 +14,10 @@ end
 rng('default')
 rng(independent)
 sortedIndex = randperm(numTrials);
+
 for i=1:numTrials
-    temp = [pos.x{sortedIndex(i)} pos.y{sortedIndex(i)}];
-    if (max(max(isnan(temp)))==1)
+    temp = [posData.x{sortedIndex(i)} posData.y{sortedIndex(i)} veloData.x{sortedIndex(i)} veloData.y{sortedIndex(i)}];
+    if (max(max(isnan(temp)))==1||max(max(isnan(spikes{sortedIndex(i)}))))
         continue;
     end
     if i <= testingsize
@@ -25,8 +26,8 @@ for i=1:numTrials
     else
         xTest = [xTest;spikes{sortedIndex(i)}];
         yTest = [yTest;temp];
-        plotXpos = [plotXpos;pos.x{sortedIndex(i)}];
-        plotYpos = [plotYpos;pos.y{sortedIndex(i)}];
+        plotXpos = [plotXpos;posData.x{sortedIndex(i)}];
+        plotYpos = [plotYpos;posData.y{sortedIndex(i)}];
     end
     
 end
@@ -49,7 +50,7 @@ differencePosX = zeros(length(numTrials));
 differencePosY = zeros(length(numTrials));
 for trial= 1:length(numTrials)
     if trial ==1
-        spikeIndex = length(spikes{i});
+        spikeIndex = size(spikes{i},1);
         differencePosX(trial) = mean(abs(plotXpos(spikeIndex) - predictedTraj(spikeIndex,1)));
         differencePosY(trial) = mean(abs(plotYpos(spikeIndex) - predictedTraj(spikeIndex,2)));
     else
@@ -59,7 +60,6 @@ for trial= 1:length(numTrials)
     end
 end 
 predictedValues.Distanceperformance = mean([differencePosX; differencePosY]);
-%%
 errorX = mean((abs((plotXpos'-predictedTraj(:,1)')/plotXpos')))*100;
 errorY = mean((abs((plotYpos'-predictedTraj(:,2)')/plotYpos')))*100;
 predictedValues.Errorperformance = mean([errorX errorY]);

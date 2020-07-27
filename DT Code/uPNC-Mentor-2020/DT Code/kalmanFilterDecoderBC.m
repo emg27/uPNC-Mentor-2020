@@ -1,4 +1,4 @@
-function predictedValues = kalmanFilterDecoder(data, veloData, posData, spikes, wantComputerToDie, independent)
+function predictedValues = kalmanFilterDecoderBC(data,veloData, posData, spikes, wantComputerToDie, independent)
 % M  = parameters %velo pos etc
 % D = numNeurons;
 % time = []
@@ -26,15 +26,12 @@ D = length(spikes{1}(2,:));
 M = 4;
 
 %%
-testingCoeff = 0.90;
-testingsize = floor(length(data)*testingCoeff);
+testingCoeff = 0.80;
+testingsize = floor(length(veloData.x)*testingCoeff);
 while rem(testingsize,8)~=0
     testingsize = testingsize +1;
 end
-%%
-angles = [0 45 90 135 180 225 270 315];
-reachAngles = data(:,1);
-count = 0;
+
 trainingData.veloX = {testingsize};
 trainingData.veloY = {testingsize};
 trainingData.posX = {testingsize};
@@ -42,9 +39,9 @@ trainingData.posY = {testingsize};
 trainingData.spikes= {testingsize};
 rng('default')
 rng(independent)
-sortedIndex = randperm(length(data));
-%%
-for i = 1:length(testingsize)
+varyingTrials = randperm(length(veloData.x));
+sortedIndex = varyingTrials(1:testingsize);
+for i = 1:length(sortedIndex)
     trainingData.veloX{i} = veloData.x{sortedIndex(i)};
     veloData.x{sortedIndex(i)}= [];
     veloData.x{sortedIndex(i)} = 0;
@@ -152,7 +149,6 @@ for trial =1:length(trainingData.spikes)
 
                 if bin~=1&&(isnan(trialveloX(bin-1))||isnan(trialveloY(bin-1))||isnan(trialposX(bin-1))||isnan(trialposY(bin-1))||isnan(trialSpikes(bin-1)))
                     continue; 
-
                 end
                     if bin==1
                         veloX = trialveloX(bin);
@@ -218,7 +214,7 @@ for trial=1:length(testingPosX)
        end
        k_t = Sig_t1*C'*(C*Sig_t1*C'+R)^(-1);
        Mu_t= Mu_t1+k_t*(testingSpikes{trial}(bin,:)'-C*Mu_t1);
-       Sig_t = Sig_t1-k_t*C*Sig_t1(bin);
+       Sig_t = Sig_t1-k_t*C*Sig_t1;
        if bin==1
            predictedValues.muPos{trial} = Mu_t(1:2)';
            predictedValues.muVelo{trial} =Mu_t(3:4)';
@@ -234,15 +230,15 @@ end
 if wantComputerToDie
 figure;
     for trial =1:length(predictedValues.muPos)
-            tempPosX = zeros(length(predictedValues.muPos{trial}));
-            tempPosY = zeros(length(predictedValues.muPos{trial}));
+            tempPosX = zeros(length(predictedValues.muPos{trial}),1);
+            tempPosY = zeros(length(predictedValues.muPos{trial}),1);
             for bin = 1:length(predictedValues.muPos{trial})
                 if bin ==1
                     tempPosX(1) = predictedValues.muPos{trial}(1,1);
                     tempPosY(1) = predictedValues.muPos{trial}(1,2);
                 else
-                    tempPosX(bin) = tempPosX(bin-1)+predictedValues.muVelo{trial}(bin,1)*0.05;
-                    tempPosY(bin) = tempPosY(bin-1)+predictedValues.muVelo{trial}(bin,2)*0.05;
+                    tempPosX(bin) = tempPosX(bin-1)+predictedValues.muVelo{trial}(bin,1)*0.045;
+                    tempPosY(bin) = tempPosY(bin-1)+predictedValues.muVelo{trial}(bin,2)*0.045;
                 end 
             end
             predictedValues.muPos{trial}(:,1) = tempPosX;
@@ -277,10 +273,10 @@ for trial= 1:length(testingPosX)
        if (max(max(isnan(predictedValues.muVelo{trial}(:,1)))) == 1 || max(max(isnan(predictedValues.muVelo{trial}(:,2)))) == 1 || max(max(isnan(testingVeloX{trial}(1:end-1)))) == 1 || max(max(isnan(testingVeloY{trial}(1:end-1)))) == 1)
            continue;
        end 
-       xp = abs(predictedValues.muPos{trial}(:,1) - testingPosX{trial}(1:end-1))/(testingPosX{trial}(1:end-1));
-       yp = abs(predictedValues.muPos{trial}(:,2) - testingPosY{trial}(1:end-1))/(testingPosY{trial}(1:end-1));
-       xv = abs(predictedValues.muVelo{trial}(:,1) - testingVeloX{trial}(1:end-1))/(testingVeloX{trial}(1:end-1));
-       yv = abs(predictedValues.muVelo{trial}(:,2) - testingVeloY{trial}(1:end-1))/(testingVeloY{trial}(1:end-1));
+       xp = abs(predictedValues.muPos{trial}(:,1) - testingPosX{trial}(1:end))/(testingPosX{trial}(1:end));
+       yp = abs(predictedValues.muPos{trial}(:,2) - testingPosY{trial}(1:end))/(testingPosY{trial}(1:end));
+       xv = abs(predictedValues.muVelo{trial}(:,1) - testingVeloX{trial}(1:end))/(testingVeloX{trial}(1:end));
+       yv = abs(predictedValues.muVelo{trial}(:,2) - testingVeloY{trial}(1:end))/(testingVeloY{trial}(1:end));
        error.diffXPos{trial} = xp((xp ~= 0));
        error.diffYPos{trial} = yp((yp ~= 0));
        error.diffXVelo{trial} = xv((xv ~= 0));
@@ -300,18 +296,18 @@ predictedValues.Errorperformance= mean([mean(abs(meanErrorPosX))*100, mean(abs(m
 % Taking end of each trial and comparing to. if we know target position
 
 % X and Y pos diff between last value in each bin
-differencePosX = zeros(length(testingPosX));
-differencePosY = zeros(length(testingPosX));
+differencePosX = zeros(length(testingPosX),1);
+differencePosY = zeros(length(testingPosX),1);
 for trial= 1:length(testingPosX)
     
          if (max(max(isnan(predictedValues.muPos{trial}(:,1)))) == 1 || max(max(isnan(predictedValues.muPos{trial}(:,2)))) == 1 || max(max(isnan(testingPosX{trial}(1:end-1)))) == 1 || max(max(isnan(testingPosY{trial}(1:end-1)))) == 1)
            continue;
          end 
           
-         differencePosX(trial) = mean(abs(testingPosX{trial}(end) - predictedValues.muPos{trial}(end,1)));
+         differencePosX(trial,1) = mean(abs(testingPosX{trial}(end) - predictedValues.muPos{trial}(end,1)));
          
         
-         differencePosY(trial) = mean(abs(testingPosY{trial}(end) - predictedValues.muPos{trial}(end,2)));
+         differencePosY(trial,1) = mean(abs(testingPosY{trial}(end) - predictedValues.muPos{trial}(end,2)));
 
 end 
 predictedValues.Distanceperformance = mean([differencePosX ;differencePosY]);

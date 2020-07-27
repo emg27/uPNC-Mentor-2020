@@ -1,10 +1,10 @@
-function predictedValues = PosKalmanFilterDecoder(data,posData, spikes)
+function predictedValues = PosKalmanFilterDecoderBC(posData, spikes, independent)
 D = length(spikes{1}(2,:));
 M = 2;
 
 %%
-testingCoeff = 0.90;
-testingsize = floor(length(data)*testingCoeff);
+testingCoeff = 0.70;
+testingsize = floor(length(posData.x)*testingCoeff);
 while rem(testingsize,8)~=0
     testingsize = testingsize +1;
 end
@@ -14,7 +14,8 @@ trainingData.posY = {testingsize};
 trainingData.spikes= {testingsize};
 rng('default')
 rng(independent)
-sortedIndex = randperm(length(data));
+varyingTrials = randperm(length(posData.x));
+sortedIndex = varyingTrials(1:testingsize);
 %%
 for i = 1:length(sortedIndex)
     trainingData.posX{i} = posData.x{sortedIndex(i)};
@@ -185,8 +186,8 @@ for trial= 1:length(testingPosX)
        if (max(max(isnan(predictedValues.muPos{trial}(:,1)))) == 1 || max(max(isnan(predictedValues.muPos{trial}(:,2)))) == 1 || max(max(isnan(testingPosX{trial}(1:end-1)))) == 1 || max(max(isnan(testingPosY{trial}(1:end-1)))) == 1)
            continue;
        end 
-       xp = abs(predictedValues.muPos{trial}(:,1) - testingPosX{trial}(1:end-1))/(testingPosX{trial}(1:end-1));
-       yp = abs(predictedValues.muPos{trial}(:,2) - testingPosY{trial}(1:end-1))/(testingPosY{trial}(1:end-1));
+       xp = abs(predictedValues.muPos{trial}(:,1) - testingPosX{trial}(1:end))/(testingPosX{trial}(1:end));
+       yp = abs(predictedValues.muPos{trial}(:,2) - testingPosY{trial}(1:end))/(testingPosY{trial}(1:end));
        error.diffXPos{trial} = xp((xp ~= 0));
        error.diffYPos{trial} = yp((yp ~= 0));
        meanErrorPosX(trial) = mean(error.diffXPos{trial},1);
@@ -201,18 +202,18 @@ predictedValues.Errorperformance= mean([mean(abs(meanErrorPosX))*100, mean(abs(m
 % Taking end of each trial and comparing to. if we know target position
 
 % X and Y pos diff between last value in each bin
-differencePosX = zeros(length(testingPosX));
-differencePosY = zeros(length(testingPosX));
+differencePosX = zeros(length(testingPosX),1);
+differencePosY = zeros(length(testingPosX),1);
 for trial= 1:length(testingPosX)
     
          if (max(max(isnan(predictedValues.muPos{trial}(:,1)))) == 1 || max(max(isnan(predictedValues.muPos{trial}(:,2)))) == 1 || max(max(isnan(testingPosX{trial}(1:end-1)))) == 1 || max(max(isnan(testingPosY{trial}(1:end-1)))) == 1)
            continue;
          end 
           
-         differencePosX(trial) = mean(abs(testingPosX{trial}(end) - predictedValues.muPos{trial}(end,1)));
+         differencePosX(trial,1) = mean(abs(testingPosX{trial}(end) - predictedValues.muPos{trial}(end,1)));
          
         
-         differencePosY(trial) = mean(abs(testingPosY{trial}(end) - predictedValues.muPos{trial}(end,2)));
+         differencePosY(trial,1) = mean(abs(testingPosY{trial}(end) - predictedValues.muPos{trial}(end,2)));
 
 end 
 predictedValues.Distanceperformance = mean([differencePosX;differencePosY]);
